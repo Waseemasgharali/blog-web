@@ -1,5 +1,7 @@
 const express = require("express");
 const multer = require("multer");
+const session = require("express-session");
+const bcrypt = require("bcrypt");
 const path = require("path");
 const db = require("./db");
 
@@ -10,6 +12,13 @@ app.set("view engine", "ejs");
 
 app.use(express.urlencoded({ extended: true }));
 app.use(express.static(path.join(__dirname, "public")));
+app.use(
+  session({
+    secret: "secret",
+    resave: false,
+    saveUninitialized: false,
+  })
+);
 
 // Setup multer for file uploads
 const storage = multer.diskStorage({
@@ -34,13 +43,18 @@ app.get("/", (req, res) => {
       return;
     }
     console.log(rows); // Log the retrieved rows
-    res.render("index", { posts: rows });
+    res.render("index", { posts: rows, loggedIn: req.session.loggedIn });
   });
 });
 
 // Add post route
 app.get("/add_post", (req, res) => {
-  res.render("add_post");
+  // Require authentication
+  if (!req.session.loggedIn) {
+    res.redirect("/login");
+  } else {
+    res.render("add_post");
+  }
 });
 
 // Update the POST route for adding a new post
@@ -94,6 +108,85 @@ app.post("/delete_post/:id", (req, res) => {
         res.redirect("/");
       }
     });
+  });
+});
+
+app.get("/login", (req, res) => {
+  res.render("login", { error: null }); // Pass error as null initially
+});
+
+app.post("/login", (req, res) => {
+  const { username, password } = req.body;
+
+  // Check if user exists
+  db.get("SELECT * FROM users WHERE username = ?", [username], (err, row) => {
+    if (err) {
+      console.error(err.message);
+      res.status(500).send("Internal Server Error");
+      return;
+    }
+    if (!row) {
+      res.render("login", { error: "Invalid username or password" });
+      return;
+    }
+    // Check password
+    bcrypt.compare(password, row.password, (err, result) => {
+      if (err) {
+        console.error(err.message);
+        res.status(500).send("Internal Server Error");
+        return;
+      }
+      if (result) {
+        req.session.loggedIn = true;
+        req.session.username = username;
+        res.redirect("/");
+      } else {
+        res.render("login", { error: "Invalid username or password" });
+      }
+    });
+  });
+});
+
+app.get("/signup", (req, res) => {
+  res.render("signup");
+});
+
+app.post("/signup", (req, res) => {
+  const { username, password } = req.body;
+
+  // Hash password
+  bcrypt.hash(password, 10, (err, hash) => {
+    if (err) {
+      console.error(err.message);
+      res.status(500).send("Internal Server Error");
+      return;
+    }
+    // Save user to database
+    db.run(
+      "INSERT INTO users (username, password) VALUES (?, ?)",
+      [username, hash],
+      (err) => {
+        if (err) {
+          console.error(err.message);
+          res.status(500).send("Internal Server Error");
+          return;
+        }
+        res.redirect("/login");
+      }
+    );
+  });
+});
+
+app.get("/logout", (req, res) => {
+  // Destroy the session
+  req.session.destroy((err) => {
+    if (err) {
+      console.error(err.message);
+      res.status(500).send("Internal Server Error");
+      return;
+    }
+    // Redirect the user to the homepage after logout
+    res.redirect("/");
   });
 });
 

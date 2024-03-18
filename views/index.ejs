@@ -8,8 +8,15 @@
   </head>
   <body>
     <div class="nav container">
-      <h1 class="container">Code Blog</h1>
-      <a href="/add_post">Add Post</a>
+      <h1>Code Blog</h1>
+      <div class="nav-right">
+        <% if (loggedIn) { %>
+        <a href="/logout">Logout</a>
+        <% } else { %>
+        <a href="/login">Login</a>
+        <% } %>
+        <a href="/add_post">Add Post</a>
+      </div>
     </div>
     <!-- Update index.ejs to include delete button -->
     <ul class="post-container container">

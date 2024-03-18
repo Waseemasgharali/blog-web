@@ -11,4 +11,10 @@ db.run(`CREATE TABLE IF NOT EXISTS posts (
     image TEXT
 )`);
 
+db.run(`CREATE TABLE IF NOT EXISTS users (
+    id INTEGER PRIMARY KEY,
+    username TEXT UNIQUE,
+    password TEXT
+)`);
+
 module.exports = db;
